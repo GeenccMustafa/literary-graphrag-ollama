@@ -26,7 +26,7 @@ This project demonstrates a Retrieval Augmented Generation (RAG) system enhanced
     *   Generates answers using an Ollama-hosted LLM based on the retrieved context and chat history.
 
 ## Project Structure
-
+```
 GRAPHRAG/
 ├── .env.example # Example environment file (users should copy to .env)
 ├── .gitignore # Specifies intentionally untracked files
@@ -38,8 +38,8 @@ GRAPHRAG/
 ├── requirements.txt # Python dependencies
 ├── streamlit_app.py # Streamlit UI application
 └── data/
-└── Crime_and_Punishment.txt # Default novel (or place your novel here)
-
+      └── Crime_and_Punishment.txt # Default novel (or place your novel here)
+```
 # Generated files like .gpickle, .pkl, .html will appear here after running scripts
 
 ## Setup Instructions
