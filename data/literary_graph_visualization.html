@@ -1,0 +1,321 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1>Literary Character Network</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1>Literary Character Network</h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 800px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"group": 1, "id": "Dostoevsky", "label": "Dostoevsky", "shape": "dot", "size": 10, "title": "Character: Dostoevsky\u003cbr\u003eType: character"}, {"group": 1, "id": "Raskolnikov", "label": "Raskolnikov", "shape": "dot", "size": 100, "title": "Character: Raskolnikov\u003cbr\u003eType: character"}, {"group": 1, "id": "Andrey Semyonovitch Lebeziatnikov", "label": "Andrey Semyonovitch Lebeziatnikov", "shape": "dot", "size": 28, "title": "Character: Andrey Semyonovitch Lebeziatnikov\u003cbr\u003eType: character"}, {"group": 1, "id": "Lida", "label": "Lida", "shape": "dot", "size": 38, "title": "Character: Lida\u003cbr\u003eType: character"}, {"group": 1, "id": "Polenka", "label": "Polenka", "shape": "dot", "size": 40, "title": "Character: Polenka\u003cbr\u003eType: character"}, {"group": 1, "id": "Marfa Petrovna", "label": "Marfa Petrovna", "shape": "dot", "size": 36, "title": "Character: Marfa Petrovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Tchebarov", "label": "Tchebarov", "shape": "dot", "size": 12, "title": "Character: Tchebarov\u003cbr\u003eType: character"}, {"group": 1, "id": "Nikodim Fomitch", "label": "Nikodim Fomitch", "shape": "dot", "size": 28, "title": "Character: Nikodim Fomitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Ilya Petrovitch", "label": "Ilya Petrovitch", "shape": "dot", "size": 18, "title": "Character: Ilya Petrovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Zossimov", "label": "Zossimov", "shape": "dot", "size": 42, "title": "Character: Zossimov\u003cbr\u003eType: character"}, {"group": 1, "id": "Dmitri", "label": "Dmitri", "shape": "dot", "size": 32, "title": "Character: Dmitri\u003cbr\u003eType: character"}, {"group": 1, "id": "Razumihin", "label": "Razumihin", "shape": "dot", "size": 64, "title": "Character: Razumihin\u003cbr\u003eType: character"}, {"group": 1, "id": "Pyotr Petrovitch\u2019S", "label": "Pyotr Petrovitch\u2019S", "shape": "dot", "size": 28, "title": "Character: Pyotr Petrovitch\u2019S\u003cbr\u003eType: character"}, {"group": 1, "id": "Pyotr Petrovitch", "label": "Pyotr Petrovitch", "shape": "dot", "size": 62, "title": "Character: Pyotr Petrovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Lizaveta Ivanovna", "label": "Lizaveta Ivanovna", "shape": "dot", "size": 22, "title": "Character: Lizaveta Ivanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Nastasya", "label": "Nastasya", "shape": "dot", "size": 40, "title": "Character: Nastasya\u003cbr\u003eType: character"}, {"group": 1, "id": "Pulcheria Alexandrovna", "label": "Pulcheria Alexandrovna", "shape": "dot", "size": 50, "title": "Character: Pulcheria Alexandrovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Andrey Semyonovitch", "label": "Andrey Semyonovitch", "shape": "dot", "size": 24, "title": "Character: Andrey Semyonovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Project Gutenberg", "label": "Project Gutenberg", "shape": "dot", "size": 14, "title": "Character: Project Gutenberg\u003cbr\u003eType: character"}, {"group": 1, "id": "Sonia", "label": "Sonia", "shape": "dot", "size": 78, "title": "Character: Sonia\u003cbr\u003eType: character"}, {"group": 1, "id": "Porfiry", "label": "Porfiry", "shape": "dot", "size": 44, "title": "Character: Porfiry\u003cbr\u003eType: character"}, {"group": 1, "id": "Katerina Ivanovna", "label": "Katerina Ivanovna", "shape": "dot", "size": 64, "title": "Character: Katerina Ivanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Ach", "label": "Ach", "shape": "dot", "size": 28, "title": "Character: Ach\u003cbr\u003eType: character"}, {"group": 1, "id": "Koch", "label": "Koch", "shape": "dot", "size": 30, "title": "Character: Koch\u003cbr\u003eType: character"}, {"group": 1, "id": "Dmitri Prokofitch", "label": "Dmitri Prokofitch", "shape": "dot", "size": 36, "title": "Character: Dmitri Prokofitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Jesus", "label": "Jesus", "shape": "dot", "size": 16, "title": "Character: Jesus\u003cbr\u003eType: character"}, {"group": 1, "id": "Rodion Romanovitch", "label": "Rodion Romanovitch", "shape": "dot", "size": 60, "title": "Character: Rodion Romanovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Amalia Ivanovna", "label": "Amalia Ivanovna", "shape": "dot", "size": 36, "title": "Character: Amalia Ivanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Lebeziatnikov", "label": "Lebeziatnikov", "shape": "dot", "size": 48, "title": "Character: Lebeziatnikov\u003cbr\u003eType: character"}, {"group": 1, "id": "Svidriga\u00eflov", "label": "Svidriga\u00eflov", "shape": "dot", "size": 58, "title": "Character: Svidriga\u00eflov\u003cbr\u003eType: character"}, {"group": 1, "id": "Jove", "label": "Jove", "shape": "dot", "size": 16, "title": "Character: Jove\u003cbr\u003eType: character"}, {"group": 1, "id": "Zametov", "label": "Zametov", "shape": "dot", "size": 36, "title": "Character: Zametov\u003cbr\u003eType: character"}, {"group": 1, "id": "Lizaveta", "label": "Lizaveta", "shape": "dot", "size": 44, "title": "Character: Lizaveta\u003cbr\u003eType: character"}, {"group": 1, "id": "Katerina Ivanovna\u2019S", "label": "Katerina Ivanovna\u2019S", "shape": "dot", "size": 46, "title": "Character: Katerina Ivanovna\u2019S\u003cbr\u003eType: character"}, {"group": 1, "id": "Luise Ivanovna", "label": "Luise Ivanovna", "shape": "dot", "size": 12, "title": "Character: Luise Ivanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Semyon Zaharovitch", "label": "Semyon Zaharovitch", "shape": "dot", "size": 20, "title": "Character: Semyon Zaharovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Avdotya Romanovna", "label": "Avdotya Romanovna", "shape": "dot", "size": 46, "title": "Character: Avdotya Romanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Gutenberg", "label": "Gutenberg", "shape": "dot", "size": 14, "title": "Character: Gutenberg\u003cbr\u003eType: character"}, {"group": 1, "id": "Luzhin", "label": "Luzhin", "shape": "dot", "size": 62, "title": "Character: Luzhin\u003cbr\u003eType: character"}, {"group": 1, "id": "Sofya Semyonovna", "label": "Sofya Semyonovna", "shape": "dot", "size": 52, "title": "Character: Sofya Semyonovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Karl", "label": "Karl", "shape": "dot", "size": 26, "title": "Character: Karl\u003cbr\u003eType: character"}, {"group": 1, "id": "License", "label": "License", "shape": "dot", "size": 14, "title": "Character: License\u003cbr\u003eType: character"}, {"group": 1, "id": "Kapernaumov", "label": "Kapernaumov", "shape": "dot", "size": 32, "title": "Character: Kapernaumov\u003cbr\u003eType: character"}, {"group": 1, "id": "Avdotya Romanovna\u2019S", "label": "Avdotya Romanovna\u2019S", "shape": "dot", "size": 30, "title": "Character: Avdotya Romanovna\u2019S\u003cbr\u003eType: character"}, {"group": 1, "id": "Martha", "label": "Martha", "shape": "dot", "size": 16, "title": "Character: Martha\u003cbr\u003eType: character"}, {"group": 1, "id": "Captain", "label": "Captain", "shape": "dot", "size": 12, "title": "Character: Captain\u003cbr\u003eType: character"}, {"group": 1, "id": "Alyona Ivanovna", "label": "Alyona Ivanovna", "shape": "dot", "size": 24, "title": "Character: Alyona Ivanovna\u003cbr\u003eType: character"}, {"group": 1, "id": "Marmeladov", "label": "Marmeladov", "shape": "dot", "size": 36, "title": "Character: Marmeladov\u003cbr\u003eType: character"}, {"group": 1, "id": "Mitka", "label": "Mitka", "shape": "dot", "size": 12, "title": "Character: Mitka\u003cbr\u003eType: character"}, {"group": 1, "id": "Resslich", "label": "Resslich", "shape": "dot", "size": 24, "title": "Character: Resslich\u003cbr\u003eType: character"}, {"group": 1, "id": "Dushkin", "label": "Dushkin", "shape": "dot", "size": 18, "title": "Character: Dushkin\u003cbr\u003eType: character"}, {"group": 1, "id": "Porfiry Petrovitch", "label": "Porfiry Petrovitch", "shape": "dot", "size": 36, "title": "Character: Porfiry Petrovitch\u003cbr\u003eType: character"}, {"group": 1, "id": "Kapernaumovs", "label": "Kapernaumovs", "shape": "dot", "size": 28, "title": "Character: Kapernaumovs\u003cbr\u003eType: character"}, {"group": 1, "id": "Nikolay", "label": "Nikolay", "shape": "dot", "size": 38, "title": "Character: Nikolay\u003cbr\u003eType: character"}, {"group": 1, "id": "Philip", "label": "Philip", "shape": "dot", "size": 22, "title": "Character: Philip\u003cbr\u003eType: character"}]);
+                  edges = new vis.DataSet([{"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 16", "to": "Lizaveta", "value": 16}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 21", "to": "Lebeziatnikov", "value": 21}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 18", "to": "Marmeladov", "value": 18}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 34", "to": "Katerina Ivanovna", "value": 34}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 69", "to": "Sonia", "value": 69}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 25", "to": "Nastasya", "value": 25}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Ach", "value": 6}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 73", "to": "Razumihin", "value": 73}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Alyona Ivanovna", "value": 8}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Lizaveta Ivanovna", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Koch", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Mitka", "value": 1}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Ilya Petrovitch", "value": 7}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Nikodim Fomitch", "value": 10}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 35", "to": "Zossimov", "value": 35}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Tchebarov", "value": 1}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 23", "to": "Zametov", "value": 23}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Dmitri", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 37", "to": "Pyotr Petrovitch", "value": 37}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 27", "to": "Luzhin", "value": 27}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Pyotr Petrovitch\u2019S", "value": 6}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Andrey Semyonovitch Lebeziatnikov", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 57", "to": "Porfiry", "value": 57}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Lida", "value": 8}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Polenka", "value": 9}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Katerina Ivanovna\u2019S", "value": 7}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Semyon Zaharovitch", "value": 2}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 20", "to": "Avdotya Romanovna", "value": 20}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 36", "to": "Pulcheria Alexandrovna", "value": 36}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Dmitri Prokofitch", "value": 4}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 15", "to": "Marfa Petrovna", "value": 15}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 13", "to": "Sofya Semyonovna", "value": 13}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 45", "to": "Porfiry Petrovitch", "value": 45}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 47", "to": "Svidriga\u00eflov", "value": 47}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 29", "to": "Rodion Romanovitch", "value": 29}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Kapernaumov", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Kapernaumovs", "value": 2}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Jesus", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Martha", "value": 1}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Nikolay", "value": 7}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Andrey Semyonovitch", "value": 3}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Amalia Ivanovna", "value": 5}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Karl", "value": 1}, {"from": "Raskolnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Philip", "value": 3}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Pyotr Petrovitch", "value": 3}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lebeziatnikov", "value": 1}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Razumihin", "value": 1}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna", "value": 2}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sonia", "value": 1}, {"from": "Andrey Semyonovitch Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Andrey Semyonovitch", "value": 2}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Katerina Ivanovna", "value": 8}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Polenka", "value": 7}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Sonia", "value": 9}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Pyotr Petrovitch", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Pyotr Petrovitch\u2019S", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Lebeziatnikov", "value": 4}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sofya Semyonovna", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Rodion Romanovitch", "value": 2}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumovs", "value": 1}, {"from": "Lida", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Svidriga\u00eflov", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Katerina Ivanovna", "value": 9}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Sonia", "value": 10}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Amalia Ivanovna", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Lebeziatnikov", "value": 4}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Pyotr Petrovitch", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Sofya Semyonovna", "value": 2}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Semyon Zaharovitch", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Rodion Romanovitch", "value": 1}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Svidriga\u00eflov", "value": 3}, {"from": "Polenka", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 16", "to": "Svidriga\u00eflov", "value": 16}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Dmitri Prokofitch", "value": 2}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Pulcheria Alexandrovna", "value": 8}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Avdotya Romanovna\u2019S", "value": 2}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Luzhin", "value": 6}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 11", "to": "Avdotya Romanovna", "value": 11}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Rodion Romanovitch", "value": 2}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Pyotr Petrovitch", "value": 3}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Razumihin", "value": 3}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Philip", "value": 1}, {"from": "Marfa Petrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna", "value": 1}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luise Ivanovna", "value": 1}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Ilya Petrovitch", "value": 4}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Koch", "value": 1}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nastasya", "value": 1}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Zametov", "value": 3}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna", "value": 1}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Nikodim Fomitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Razumihin", "value": 1}, {"from": "Ilya Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nastasya", "value": 1}, {"from": "Ilya Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Zametov", "value": 3}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Nastasya", "value": 6}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 21", "to": "Razumihin", "value": 21}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Koch", "value": 2}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Dmitri", "value": 2}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Dushkin", "value": 1}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Luzhin", "value": 4}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Pyotr Petrovitch", "value": 5}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry", "value": 2}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Zametov", "value": 3}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Avdotya Romanovna", "value": 6}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Pulcheria Alexandrovna", "value": 10}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Ach", "value": 1}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna", "value": 1}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Zossimov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sonia", "value": 1}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Alyona Ivanovna", "value": 1}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta Ivanovna", "value": 1}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Nikolay", "value": 6}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Dushkin", "value": 2}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Razumihin", "value": 2}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Koch", "value": 3}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Zametov", "value": 1}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Dmitri Prokofitch", "value": 1}, {"from": "Dmitri", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 14", "to": "Nastasya", "value": 14}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Zametov", "value": 7}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Ach", "value": 2}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Koch", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 13", "to": "Pyotr Petrovitch", "value": 13}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Luzhin", "value": 9}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lebeziatnikov", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 18", "to": "Avdotya Romanovna", "value": 18}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 27", "to": "Pulcheria Alexandrovna", "value": 27}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Dmitri Prokofitch", "value": 2}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna", "value": 2}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Sofya Semyonovna", "value": 4}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 12", "to": "Sonia", "value": 12}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Porfiry Petrovitch", "value": 9}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 11", "to": "Porfiry", "value": 11}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Svidriga\u00eflov", "value": 5}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Nikolay", "value": 2}, {"from": "Razumihin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Rodion Romanovitch", "value": 2}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Pyotr Petrovitch", "value": 7}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Luzhin", "value": 2}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Pulcheria Alexandrovna", "value": 1}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Andrey Semyonovitch", "value": 1}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna", "value": 2}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Sonia", "value": 2}, {"from": "Pyotr Petrovitch\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Rodion Romanovitch", "value": 1}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 15", "to": "Avdotya Romanovna", "value": 15}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 18", "to": "Luzhin", "value": 18}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nastasya", "value": 1}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 19", "to": "Pulcheria Alexandrovna", "value": 19}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Zametov", "value": 1}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Dmitri Prokofitch", "value": 4}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Rodion Romanovitch", "value": 5}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 14", "to": "Katerina Ivanovna", "value": 14}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Sofya Semyonovna", "value": 4}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 20", "to": "Sonia", "value": 20}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Svidriga\u00eflov", "value": 3}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Porfiry", "value": 1}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Andrey Semyonovitch", "value": 7}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna\u2019S", "value": 2}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Amalia Ivanovna", "value": 7}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 17", "to": "Lebeziatnikov", "value": 17}, {"from": "Pyotr Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Lizaveta Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Alyona Ivanovna", "value": 5}, {"from": "Lizaveta Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Lizaveta", "value": 2}, {"from": "Lizaveta Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Nikolay", "value": 2}, {"from": "Lizaveta Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Porfiry Petrovitch", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Zametov", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Koch", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Avdotya Romanovna", "value": 5}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Pulcheria Alexandrovna", "value": 8}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Dmitri Prokofitch", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sonia", "value": 1}, {"from": "Nastasya", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Porfiry", "value": 1}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 26", "to": "Avdotya Romanovna", "value": 26}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 14", "to": "Luzhin", "value": 14}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Avdotya Romanovna\u2019S", "value": 2}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Dmitri Prokofitch", "value": 10}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Rodion Romanovitch", "value": 2}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Ach", "value": 2}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Marmeladov", "value": 1}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Sonia", "value": 7}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna", "value": 1}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sofya Semyonovna", "value": 1}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry", "value": 2}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Svidriga\u00eflov", "value": 3}, {"from": "Pulcheria Alexandrovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Porfiry Petrovitch", "value": 1}, {"from": "Andrey Semyonovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna", "value": 1}, {"from": "Andrey Semyonovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Amalia Ivanovna", "value": 1}, {"from": "Andrey Semyonovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Lebeziatnikov", "value": 2}, {"from": "Project Gutenberg", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "License", "value": 5}, {"from": "Project Gutenberg", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Gutenberg", "value": 5}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 46", "to": "Katerina Ivanovna", "value": 46}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 18", "to": "Lebeziatnikov", "value": 18}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Marmeladov", "value": 6}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 19", "to": "Sofya Semyonovna", "value": 19}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Kapernaumov", "value": 5}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Kapernaumovs", "value": 4}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Semyon Zaharovitch", "value": 1}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 15", "to": "Luzhin", "value": 15}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Dmitri Prokofitch", "value": 2}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna", "value": 1}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Lizaveta", "value": 10}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Ach", "value": 4}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Jesus", "value": 3}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Martha", "value": 2}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 16", "to": "Svidriga\u00eflov", "value": 16}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Katerina Ivanovna\u2019S", "value": 5}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Porfiry", "value": 4}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 11", "to": "Amalia Ivanovna", "value": 11}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Rodion Romanovitch", "value": 8}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Karl", "value": 1}, {"from": "Sonia", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Koch", "value": 2}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Jove", "value": 1}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Luzhin", "value": 2}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 23", "to": "Porfiry Petrovitch", "value": 23}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Zametov", "value": 4}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Alyona Ivanovna", "value": 1}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 9", "to": "Rodion Romanovitch", "value": 9}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Nikolay", "value": 5}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Porfiry", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Svidriga\u00eflov", "value": 4}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 12", "to": "Marmeladov", "value": 12}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 15", "to": "Lebeziatnikov", "value": 15}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Sofya Semyonovna", "value": 8}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumovs", "value": 1}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Semyon Zaharovitch", "value": 3}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 13", "to": "Amalia Ivanovna", "value": 13}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Ach", "value": 1}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Lizaveta", "value": 2}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Katerina Ivanovna\u2019S", "value": 5}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Luzhin", "value": 8}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Rodion Romanovitch", "value": 4}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Karl", "value": 2}, {"from": "Katerina Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Svidriga\u00eflov", "value": 1}, {"from": "Ach", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Zametov", "value": 2}, {"from": "Ach", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Philip", "value": 1}, {"from": "Ach", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Svidriga\u00eflov", "value": 1}, {"from": "Koch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Dushkin", "value": 1}, {"from": "Koch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Nikolay", "value": 5}, {"from": "Koch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Dmitri Prokofitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 6", "to": "Avdotya Romanovna", "value": 6}, {"from": "Dmitri Prokofitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Luzhin", "value": 3}, {"from": "Dmitri Prokofitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Dmitri Prokofitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Rodion Romanovitch", "value": 1}, {"from": "Dmitri Prokofitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Sofya Semyonovna", "value": 1}, {"from": "Jesus", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Martha", "value": 3}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 7", "to": "Avdotya Romanovna", "value": 7}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Svidriga\u00eflov", "value": 10}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Luzhin", "value": 3}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 11", "to": "Porfiry Petrovitch", "value": 11}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Amalia Ivanovna", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Karl", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lebeziatnikov", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Sofya Semyonovna", "value": 3}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Rodion Romanovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Lebeziatnikov", "value": 5}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Luzhin", "value": 3}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Karl", "value": 1}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Katerina Ivanovna\u2019S", "value": 3}, {"from": "Amalia Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Sofya Semyonovna", "value": 2}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Marmeladov", "value": 4}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 12", "to": "Sofya Semyonovna", "value": 12}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 12", "to": "Luzhin", "value": 12}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna\u2019S", "value": 2}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumovs", "value": 1}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Svidriga\u00eflov", "value": 2}, {"from": "Lebeziatnikov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna", "value": 1}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 8", "to": "Luzhin", "value": 8}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 15", "to": "Avdotya Romanovna", "value": 15}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Resslich", "value": 4}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Philip", "value": 5}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Kapernaumov", "value": 3}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Kapernaumovs", "value": 2}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 10", "to": "Sofya Semyonovna", "value": 10}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Katerina Ivanovna\u2019S", "value": 2}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Svidriga\u00eflov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Zametov", "value": 1}, {"from": "Jove", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Jove", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Zametov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Lizaveta", "value": 1}, {"from": "Zametov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 5", "to": "Alyona Ivanovna", "value": 5}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Katerina Ivanovna\u2019S", "value": 1}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Sofya Semyonovna", "value": 2}, {"from": "Lizaveta", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Katerina Ivanovna\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Semyon Zaharovitch", "value": 1}, {"from": "Katerina Ivanovna\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Katerina Ivanovna\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Karl", "value": 1}, {"from": "Katerina Ivanovna\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Luzhin", "value": 1}, {"from": "Katerina Ivanovna\u2019S", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Sofya Semyonovna", "value": 2}, {"from": "Avdotya Romanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 17", "to": "Luzhin", "value": 17}, {"from": "Avdotya Romanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Avdotya Romanovna\u2019S", "value": 4}, {"from": "Avdotya Romanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Philip", "value": 1}, {"from": "Avdotya Romanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Sofya Semyonovna", "value": 4}, {"from": "Avdotya Romanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumovs", "value": 1}, {"from": "Gutenberg", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "License", "value": 3}, {"from": "Luzhin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Avdotya Romanovna\u2019S", "value": 1}, {"from": "Luzhin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Philip", "value": 1}, {"from": "Luzhin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Marmeladov", "value": 2}, {"from": "Luzhin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Sofya Semyonovna", "value": 4}, {"from": "Sofya Semyonovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 3", "to": "Marmeladov", "value": 3}, {"from": "Sofya Semyonovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumov", "value": 1}, {"from": "Sofya Semyonovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Sofya Semyonovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Kapernaumovs", "value": 1}, {"from": "Karl", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Captain", "value": 2}, {"from": "Karl", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Marmeladov", "value": 1}, {"from": "Kapernaumov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Kapernaumovs", "value": 2}, {"from": "Kapernaumov", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Resslich", "value": 1}, {"from": "Alyona Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Nikolay", "value": 2}, {"from": "Alyona Ivanovna", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 2", "to": "Porfiry Petrovitch", "value": 2}, {"from": "Dushkin", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 1", "to": "Nikolay", "value": 1}, {"from": "Porfiry Petrovitch", "title": "Relationship: co-occurs_with\u003cbr\u003eWeight: 4", "to": "Nikolay", "value": 4}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"nodes": {"font": {"size": 12, "face": "Tahoma"}}, "edges": {"color": {"inherit": true}, "smooth": {"enabled": true, "type": "dynamic"}, "arrows": {"to": {"enabled": false}}}, "interaction": {"hover": true, "tooltipDelay": 200, "navigationButtons": true, "keyboard": true}, "physics": {"enabled": true, "barnesHut": {"gravitationalConstant": -8000, "centralGravity": 0.3, "springLength": 150, "springConstant": 0.04, "damping": 0.09, "avoidOverlap": 0.1}, "solver": "barnesHut", "minVelocity": 0.75, "stabilization": {"iterations": 1000}}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

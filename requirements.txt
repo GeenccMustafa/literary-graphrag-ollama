@@ -1,0 +1,12 @@
+spacy>=3.0.0
+networkx>=2.6
+sentence-transformers>=2.2.0
+qdrant-client>=1.7.0
+ollama>=0.1.0
+python-dotenv>=0.20.0
+streamlit>=1.20.0
+pandas # Often a useful dependency with NLP/ML
+scikit-learn # For community detection or other ML tasks if extended
+
+# After installing requirements, run:
+# python -m spacy download en_core_web_sm

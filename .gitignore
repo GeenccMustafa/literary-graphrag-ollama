@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+# .env
+*.DS_Store
+*.sqlite3
+*.db
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+venv.bak/
+.vscode/
+
+data/*.gpickle
+data/*.pkl
+# data/literary_graph_visualization.html # Usually generated, so often ignored
+
+# IDE / Editor specific
+.idea/
+*.swp
+*~
