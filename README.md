@@ -78,10 +78,6 @@ ollama pull llama3:8b
 Ensure the Ollama application/service is running in the background.
 
 ### 6. Set Up Environment Variables
-Copy the example environment file and customize it:
-```
-cp .env.example .env
-```
 - Open the .env file and review/edit the variables:
 - NOVEL_PATH: Path to your input novel text file (e.g., data/Crime_and_Punishment.txt).
 - LLM_MODEL: The Ollama model tag to use (e.g., llama3:8b).
