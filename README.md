@@ -96,3 +96,37 @@ Open a new terminal window/tab and run:
 ```
 docker run -d -p 6333:6333 -p 6334:6334 --name qdrant_literary qdrant/qdrant
 ```
+(The -d runs it in the background. --name qdrant_literary is optional but helpful for managing the container.)
+Wait a few seconds for Qdrant to initialize.
+
+2. Ensure Ollama is Running:
+Verify that your Ollama application/service is active.
+
+3. Run the Main Pipeline Script:
+In your project terminal (where you activated the virtual environment and are in the project root directory GRAPHRAG/):
+```
+python main.py
+```
+This script will:
+- Prompt you to confirm Qdrant is running.
+- Execute 01_build_kg_and_vector_db.py to process the novel, build the knowledge graph, and populate Qdrant. This can take some time for large texts.
+- Execute 02_graph_analysis_and_community.py to analyze the graph and generate LLM summaries for character communities.
+- Ask if you want to generate the graph visualization (03_visualize_graph.py).
+- Ask if you want to start the Streamlit application.
+
+4. Access the Streamlit App:
+If you choose "yes" to start Streamlit, main.py will launch it. The terminal will display a local URL (usually http://localhost:8501). Open this URL in your web browser to interact with the Literary GraphRAG application.
+
+## Development Notes
+- Data Files: Generated data files (graph, community summaries, vector DB data within Docker) are generally not meant to be committed to Git if they are large or frequently regenerated. The .gitignore file is configured to ignore most of them. The scripts will recreate them as needed.
+- Stopping Services:
+    - To stop Streamlit: Press Ctrl+C in the terminal where main.py is running.
+    - To stop Qdrant: docker stop qdrant_literary (and docker rm qdrant_literary if you want to remove the container).
+    - Stop Ollama as per its application interface.
+
+## Future Enhancements
+- More sophisticated chat history management (e.g., summarization for long conversations).
+- Richer RAG query construction that incorporates more context from chat history.
+- A UI element for users to upload or select different novels.
+- More advanced graph analysis techniques.
+- Error handling and user feedback improvements in the Streamlit app.
