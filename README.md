@@ -53,7 +53,7 @@ GRAPHRAG/
 ### 2. Clone the Repository
 ```
 git clone git@github.com:GeenccMustafa/literary-graphrag-ollama.git
-cd literary-graphrag-ollam
+cd literary-graphrag-ollama
 ```
 ### 3. Set Up Python Environment
 
