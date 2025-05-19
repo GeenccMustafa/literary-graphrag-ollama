@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+lib/
 *.py[cod]
 *$py.class
 *.egg-info/

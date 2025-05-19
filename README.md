@@ -26,7 +26,7 @@ This project demonstrates a Retrieval Augmented Generation (RAG) system enhanced
     *   Generates answers using an Ollama-hosted LLM based on the retrieved context and chat history.
 
 ## Project Structure
-
+```
 GRAPHRAG/
 ├── .env.example # Example environment file (users should copy to .env)
 ├── .gitignore # Specifies intentionally untracked files
@@ -38,8 +38,8 @@ GRAPHRAG/
 ├── requirements.txt # Python dependencies
 ├── streamlit_app.py # Streamlit UI application
 └── data/
-└── Crime_and_Punishment.txt # Default novel (or place your novel here)
-
+      └── Crime_and_Punishment.txt # Default novel (or place your novel here)
+```
 # Generated files like .gpickle, .pkl, .html will appear here after running scripts
 
 ## Setup Instructions
@@ -52,8 +52,8 @@ GRAPHRAG/
 
 ### 2. Clone the Repository
 ```
-git clone https://github.com/https://github.com/GeenccMustafa/literary-graphrag-ollama.git
-cd literary-graphrag-ollam
+git clone git@github.com:GeenccMustafa/literary-graphrag-ollama.git
+cd literary-graphrag-ollama
 ```
 ### 3. Set Up Python Environment
 
@@ -78,10 +78,6 @@ ollama pull llama3:8b
 Ensure the Ollama application/service is running in the background.
 
 ### 6. Set Up Environment Variables
-Copy the example environment file and customize it:
-```
-cp .env.example .env
-```
 - Open the .env file and review/edit the variables:
 - NOVEL_PATH: Path to your input novel text file (e.g., data/Crime_and_Punishment.txt).
 - LLM_MODEL: The Ollama model tag to use (e.g., llama3:8b).
@@ -100,3 +96,37 @@ Open a new terminal window/tab and run:
 ```
 docker run -d -p 6333:6333 -p 6334:6334 --name qdrant_literary qdrant/qdrant
 ```
+(The -d runs it in the background. --name qdrant_literary is optional but helpful for managing the container.)
+Wait a few seconds for Qdrant to initialize.
+
+2. Ensure Ollama is Running:
+Verify that your Ollama application/service is active.
+
+3. Run the Main Pipeline Script:
+In your project terminal (where you activated the virtual environment and are in the project root directory GRAPHRAG/):
+```
+python main.py
+```
+This script will:
+- Prompt you to confirm Qdrant is running.
+- Execute 01_build_kg_and_vector_db.py to process the novel, build the knowledge graph, and populate Qdrant. This can take some time for large texts.
+- Execute 02_graph_analysis_and_community.py to analyze the graph and generate LLM summaries for character communities.
+- Ask if you want to generate the graph visualization (03_visualize_graph.py).
+- Ask if you want to start the Streamlit application.
+
+4. Access the Streamlit App:
+If you choose "yes" to start Streamlit, main.py will launch it. The terminal will display a local URL (usually http://localhost:8501). Open this URL in your web browser to interact with the Literary GraphRAG application.
+
+## Development Notes
+- Data Files: Generated data files (graph, community summaries, vector DB data within Docker) are generally not meant to be committed to Git if they are large or frequently regenerated. The .gitignore file is configured to ignore most of them. The scripts will recreate them as needed.
+- Stopping Services:
+    - To stop Streamlit: Press Ctrl+C in the terminal where main.py is running.
+    - To stop Qdrant: docker stop qdrant_literary (and docker rm qdrant_literary if you want to remove the container).
+    - Stop Ollama as per its application interface.
+
+## Future Enhancements
+- More sophisticated chat history management (e.g., summarization for long conversations).
+- Richer RAG query construction that incorporates more context from chat history.
+- A UI element for users to upload or select different novels.
+- More advanced graph analysis techniques.
+- Error handling and user feedback improvements in the Streamlit app.

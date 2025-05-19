@@ -16,6 +16,9 @@ load_dotenv()
 
 # --- Configuration Constants ---
 GRAPH_PATH_ENV: str = os.getenv("GRAPH_PATH", "data/literary_graph.gpickle")
+COMMUNITY_SUMMARIES_PATH_ENV: str = os.getenv(
+    "COMMUNITY_SUMMARIES_PATH", "data/community_summaries.pkl"
+) # New
 QDRANT_HOST_ENV: str = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT_STR_ENV: Optional[str] = os.getenv("QDRANT_PORT", "6333")
 QDRANT_COLLECTION_NAME_ENV: str = os.getenv(
@@ -68,11 +71,7 @@ MAX_CONTEXT_CHUNKS_ENV: int = _parse_int_env(MAX_CONTEXT_CHUNKS_ENV_STR, 5, "MAX
 NEIGHBORHOOD_DEPTH_ENV: int = _parse_int_env(NEIGHBORHOOD_DEPTH_ENV_STR, 1, "NEIGHBORHOOD_DEPTH")
 QDRANT_CLIENT_TIMEOUT_ENV: int = _parse_int_env(QDRANT_CLIENT_TIMEOUT_ENV_STR, 20, "QDRANT_CLIENT_TIMEOUT")
 LLM_TEMPERATURE_ENV: float = _parse_float_env(LLM_TEMPERATURE_ENV_STR, 0.2, "LLM_TEMPERATURE")
-
-print(f"DEBUG query_engine.py: Raw value for LLM_NUM_CTX from os.getenv: '{LLM_NUM_CTX_ENV_STR}' (Type: {type(LLM_NUM_CTX_ENV_STR)})")
 LLM_NUM_CTX_ENV: int = _parse_int_env(LLM_NUM_CTX_ENV_STR, 4096, "LLM_NUM_CTX")
-print(f"DEBUG query_engine.py: Parsed value for LLM_NUM_CTX_ENV: {LLM_NUM_CTX_ENV}")
-
 NUM_CHAT_HISTORY_TURNS_ENV: int = _parse_int_env(NUM_CHAT_HISTORY_TURNS_ENV_STR, 2, "NUM_CHAT_HISTORY_TURNS")
 
 
@@ -99,6 +98,7 @@ class LiteraryQueryEngine:
     def __init__(
         self,
         graph_path: str = GRAPH_PATH_ENV,
+        community_summaries_path: str = COMMUNITY_SUMMARIES_PATH_ENV, # New
         qdrant_host: str = QDRANT_HOST_ENV,
         qdrant_port: Optional[int] = QDRANT_PORT_ENV,
         qdrant_collection_name: str = QDRANT_COLLECTION_NAME_ENV,
@@ -114,6 +114,7 @@ class LiteraryQueryEngine:
     ) -> None:
         print("Initializing Literary Query Engine...")
         self.graph_path = graph_path
+        self.community_summaries_path = community_summaries_path # New
         self.qdrant_host = qdrant_host
         self.qdrant_port = qdrant_port
         self.qdrant_collection_name = qdrant_collection_name
@@ -126,12 +127,13 @@ class LiteraryQueryEngine:
         self.llm_temperature = llm_temperature
         self.llm_num_ctx = llm_num_ctx
         self.num_chat_history_turns = num_chat_history_turns
-        print(f"Query Engine Config: Using num_chat_history_turns = {self.num_chat_history_turns}")
+        self.community_summaries: Dict[str, Dict[str, Any]] = {} # New
 
         try:
             self._load_spacy_model()
             self._load_embedding_model()
             self._load_graph()
+            self._load_community_summaries() # New
             self._connect_qdrant()
             self._check_ollama()
             self._precompute_graph_nodes()
@@ -162,12 +164,32 @@ class LiteraryQueryEngine:
         if not self.graph.nodes:
             print("Warning: Loaded graph has no nodes.")
 
+    def _load_community_summaries(self) -> None: # New method
+        print(f"Loading community summaries from {self.community_summaries_path}...")
+        if not os.path.exists(self.community_summaries_path):
+            print(f"Warning: Community summaries file not found: {self.community_summaries_path}. Community features will be unavailable.")
+            self.community_summaries = {}
+            return
+        try:
+            with open(self.community_summaries_path, "rb") as sf:
+                self.community_summaries = pickle.load(sf)
+            print(f"Loaded {len(self.community_summaries)} community summaries.")
+        except Exception as e:
+            print(f"Error loading community summaries: {e}. Community features will be unavailable.")
+            self.community_summaries = {}
+
+
     def _precompute_graph_nodes(self) -> None:
         if hasattr(self, 'graph') and self.graph and self.graph.nodes:
-            self.graph_nodes_set: Set[str] = set(self.graph.nodes())
+            # Normalize graph nodes once at init for consistent matching
+            self.graph_nodes_set: Set[str] = {self._normalize_entity_text(node) for node in self.graph.nodes()}
+            # Store original node names if normalization changes them, to ensure graph operations use original names
+            self.normalized_to_original_node_map: Dict[str, str] = {self._normalize_entity_text(node): node for node in self.graph.nodes()}
         else:
             self.graph_nodes_set = set()
+            self.normalized_to_original_node_map = {}
             print("Warning: Graph has no nodes or not loaded; graph_nodes_set is empty.")
+
 
     def _connect_qdrant(self) -> None:
         print(f"Connecting to Qdrant at {self.qdrant_host}:{self.qdrant_port}...")
@@ -211,31 +233,41 @@ class LiteraryQueryEngine:
         doc = self.nlp_model(query_text)
         query_entities = [
             self._normalize_entity_text(ent.text)
-            for ent in doc.ents if ent.label_ == "PERSON"
+            for ent in doc.ents if ent.label_ == "PERSON" # Consider other relevant labels like ORG, GPE if needed
         ]
-        return list(set(entity for entity in query_entities if entity and entity in self.graph_nodes_set))
+        # Filter against the precomputed set of normalized graph nodes
+        valid_entities = [entity for entity in query_entities if entity and entity in self.graph_nodes_set]
+        return list(set(valid_entities)) # Return unique, valid, normalized entities
 
-    def get_graph_context_entities(self, entities: List[str]) -> List[str]:
+    def get_graph_context_entities(self, normalized_entities: List[str]) -> List[str]:
         if not self.graph or not self.graph.nodes:
             print("Warning: Graph not loaded/empty. Cannot get graph context.")
-            return entities
-        graph_context_nodes: Set[str] = set(entities)
-        for entity_name in entities:
-            if entity_name in self.graph:
+            return normalized_entities # Return original normalized entities
+
+        graph_context_nodes_normalized: Set[str] = set(normalized_entities)
+        for norm_entity_name in normalized_entities:
+            original_entity_name = self.normalized_to_original_node_map.get(norm_entity_name)
+            if original_entity_name and original_entity_name in self.graph:
+                # Perform graph operations with original names
                 paths = nx.single_source_shortest_path_length(
-                    self.graph, entity_name, cutoff=self.neighborhood_depth
+                    self.graph, original_entity_name, cutoff=self.neighborhood_depth
                 )
-                graph_context_nodes.update(paths.keys())
-        return list(graph_context_nodes)
+                # Add normalized versions of neighbors to the context set
+                for neighbor_original_name in paths.keys():
+                    graph_context_nodes_normalized.add(self._normalize_entity_text(neighbor_original_name))
+        return list(graph_context_nodes_normalized)
+
 
     def get_relevant_chunks_with_indices(
-        self, query_text: str, filter_entities: Optional[List[str]] = None
+        self, query_text: str, filter_entities_normalized: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
-        """Retrieves relevant text chunks from Qdrant, returning them with their indices."""
         query_vector = self.embedding_model.encode(query_text).tolist()
         qdrant_filter_payload: Optional[Filter] = None
-        if filter_entities:
-            valid_filter_values = [str(e) for e in filter_entities if e and isinstance(e, str)]
+
+        if filter_entities_normalized:
+            # Qdrant expects strings. Entities in payload.entities_in_chunk are already normalized
+            # during the build phase by _create_text_chunks_and_extract_entities
+            valid_filter_values = [str(e) for e in filter_entities_normalized if e and isinstance(e, str)]
             if valid_filter_values:
                 qdrant_filter_payload = Filter(
                     should=[FieldCondition(key="payload.entities_in_chunk", match=MatchAny(any=valid_filter_values))]
@@ -259,17 +291,48 @@ class LiteraryQueryEngine:
         for point in search_results:
             if point.payload and "text" in point.payload and "chunk_idx" in point.payload:
                 retrieved_points_data.append(
-                    {"text": point.payload["text"], "chunk_idx": point.payload["chunk_idx"]}
+                    {
+                        "text": point.payload["text"],
+                        "chunk_idx": point.payload["chunk_idx"],
+                        "score": point.score, # Good to have for potential ranking/filtering
+                        "entities_in_chunk": point.payload.get("entities_in_chunk", [])
+                    }
                 )
         return retrieved_points_data
+    
+    def _get_community_info_for_entities(self, entities: List[str]) -> List[Dict[str, Any]]: # New method
+        """Finds community information for a list of (normalized) entities."""
+        relevant_communities_info = []
+        if not self.community_summaries:
+            return relevant_communities_info
+
+        entity_set = set(entities)
+        found_community_ids = set()
+
+        for comm_id, comm_data in self.community_summaries.items():
+            # Community nodes are already normalized if _normalize_entity_text was used in 01 and 02
+            community_nodes_set = set(comm_data.get("nodes", []))
+            # Check for intersection
+            if not entity_set.isdisjoint(community_nodes_set): # if any entity is in this community
+                if comm_id not in found_community_ids:
+                    relevant_communities_info.append({
+                        "id": comm_id,
+                        "nodes": comm_data.get("nodes", []),
+                        "summary": comm_data.get("summary", "N/A")
+                    })
+                    found_community_ids.add(comm_id)
+        return relevant_communities_info
+
 
     def _build_llm_prompt(
         self, user_query: str, context_str: str, chat_history: Optional[List[Dict[str, str]]] = None
     ) -> str:
         history_str_segment = ""
         if chat_history and self.num_chat_history_turns > 0:
-            num_messages_to_include = self.num_chat_history_turns * 2
-            history_up_to_current_query = chat_history[:-1]
+            # chat_history includes the current user query as the last item. Exclude it for "Previous conversation"
+            num_messages_to_include = self.num_chat_history_turns * 2 
+            history_up_to_current_query = chat_history[:-1] # Exclude current user query
+            
             actual_history_to_format = history_up_to_current_query[-num_messages_to_include:]
             if actual_history_to_format:
                 formatted_history_lines = ["Previous conversation:"]
@@ -294,8 +357,19 @@ Answer:"""
 
     def answer_query(
         self, user_query: str, chat_history: Optional[List[Dict[str, str]]] = None
-    ) -> str:
+    ) -> Dict[str, Any]: # Modified return type
         print(f"\nProcessing Query: '{user_query}'")
+        
+        rag_context: Dict[str, Any] = {
+            "query_text": user_query,
+            "query_entities_extracted": [],
+            "graph_expanded_entities": [],
+            "retrieved_chunks": [],
+            "community_info": [],
+            "llm_answer": "Error: Processing failed before LLM call.",
+            "final_context_str_for_llm": ""
+        }
+
         if chat_history and self.num_chat_history_turns > 0:
             history_for_log = chat_history[:-1]
             num_messages_to_log = min(len(history_for_log), self.num_chat_history_turns * 2)
@@ -303,35 +377,61 @@ Answer:"""
                 print(f"  With chat history (last {num_messages_to_log} prior messages considered):")
 
         query_for_rag = user_query
-        query_entities = self.get_entities_from_query(query_for_rag)
-        print(f"  Identified entities for RAG (from '{query_for_rag[:50]}...'): {query_entities}")
+        
+        # 1. Extract entities from query (normalized)
+        query_entities_normalized = self.get_entities_from_query(query_for_rag)
+        rag_context["query_entities_extracted"] = query_entities_normalized
+        print(f"  Identified entities for RAG (normalized): {query_entities_normalized}")
 
-        entities_for_qdrant_filter: List[str] = []
-        if query_entities:
-            expanded_entities = self.get_graph_context_entities(query_entities)
-            print(f"  Expanded entities via graph (depth {self.neighborhood_depth}): {expanded_entities}")
-            entities_for_qdrant_filter = expanded_entities
+        # 2. Expand entities using graph (all normalized)
+        entities_for_qdrant_filter_normalized: List[str] = []
+        if query_entities_normalized:
+            expanded_entities_normalized = self.get_graph_context_entities(query_entities_normalized)
+            rag_context["graph_expanded_entities"] = expanded_entities_normalized
+            print(f"  Expanded entities via graph (normalized, depth {self.neighborhood_depth}): {expanded_entities_normalized}")
+            entities_for_qdrant_filter_normalized = expanded_entities_normalized
         else:
-            print("  No specific entities from query found in graph for RAG.")
+            print("  No specific entities from query found in graph for RAG. Will use semantic search only for chunks.")
+            rag_context["graph_expanded_entities"] = [] # Ensure it's an empty list not None
 
+        # 3. Retrieve relevant chunks
         retrieved_points_data = self.get_relevant_chunks_with_indices(
-            query_for_rag, filter_entities=entities_for_qdrant_filter
+            query_for_rag, filter_entities_normalized=entities_for_qdrant_filter_normalized
         )
 
-        if not retrieved_points_data and entities_for_qdrant_filter:
+        if not retrieved_points_data and entities_for_qdrant_filter_normalized: # If filtered search yields nothing, try broad
             print("  No RAG chunks with entity filtering. Retrying with pure semantic search...")
-            retrieved_points_data = self.get_relevant_chunks_with_indices(query_for_rag, filter_entities=None)
+            retrieved_points_data = self.get_relevant_chunks_with_indices(query_for_rag, filter_entities_normalized=None)
+        
+        rag_context["retrieved_chunks"] = retrieved_points_data # Store detailed chunk info
 
+        # 4. Prepare context string for LLM
         context_str: str
         if not retrieved_points_data:
             print("  No relevant RAG chunks found even after fallback.")
             context_str = "No specific context was retrieved from the text for this question. Answer based on previous conversation if relevant, or state that information is not available from the provided text."
         else:
-            retrieved_points_data.sort(key=lambda item: item["chunk_idx"])
+            retrieved_points_data.sort(key=lambda item: item["chunk_idx"]) # Sort by original index
             print(f"  Retrieved {len(retrieved_points_data)} RAG chunks, sorted by original index.")
             chunk_texts = [p["text"] for p in retrieved_points_data]
             context_str = "\n\n---\n\n".join(chunk_texts)
         
+        rag_context["final_context_str_for_llm"] = context_str
+
+        # 5. Get community info for relevant entities
+        # Use expanded entities if available, otherwise query entities.
+        entities_for_community_check = rag_context["graph_expanded_entities"] or rag_context["query_entities_extracted"]
+        if entities_for_community_check:
+            rag_context["community_info"] = self._get_community_info_for_entities(entities_for_community_check)
+            if rag_context["community_info"]:
+                print(f"  Found {len(rag_context['community_info'])} relevant communities.")
+            else:
+                print("  No specific communities found for the identified entities.")
+        else:
+            print("  No entities to check for community information.")
+
+
+        # 6. Build prompt and query LLM
         prompt = self._build_llm_prompt(user_query, context_str, chat_history)
         
         print(f"  Asking LLM ({self.llm_model_name})... (Temp: {self.llm_temperature}, Ctx: {self.llm_num_ctx})")
@@ -343,37 +443,54 @@ Answer:"""
             )
             answer = response["response"].strip()
             print(f"  LLM Answer: {answer}")
-            return answer
+            rag_context["llm_answer"] = answer
         except Exception as e:
+            error_msg = f"Sorry, I encountered an error trying to generate an answer: {e}"
             print(f"Error calling LLM: {e}")
-            return f"Sorry, I encountered an error trying to generate an answer: {e}"
+            rag_context["llm_answer"] = error_msg
+            
+        return rag_context
 
 # --- Self-test / Example Usage ---
 if __name__ == "__main__":
     print("Running Literary Query Engine self-test...")
     query_engine_instance: Optional[LiteraryQueryEngine] = None
     try:
-        query_engine_instance = LiteraryQueryEngine()
+        # Ensure COMMUNITY_SUMMARIES_PATH_ENV is set in your .env or has a default
+        # For self-test, you might need to point it to a valid file or handle its absence
+        query_engine_instance = LiteraryQueryEngine(community_summaries_path=COMMUNITY_SUMMARIES_PATH_ENV) 
         
         print("\n--- Test Query 1 (No History) ---")
-        query1 = "Who is Raskolnikov?"
-        answer1 = query_engine_instance.answer_query(query1)
-        print(f"Query: {query1}\nAnswer: {answer1}")
+        query1 = "Who is Raskolnikov and what are his problems?"
+        response_data1 = query_engine_instance.answer_query(query1)
+        print(f"Query: {query1}\nLLM Answer: {response_data1['llm_answer']}")
+        print(f"  Extracted Entities: {response_data1['query_entities_extracted']}")
+        print(f"  Graph Expanded Entities: {response_data1['graph_expanded_entities']}")
+        print(f"  Retrieved Chunks: {len(response_data1['retrieved_chunks'])}")
+        if response_data1['retrieved_chunks']:
+            print(f"    Example Chunk 0: {response_data1['retrieved_chunks'][0]['text'][:100]}...")
+        print(f"  Community Info: {response_data1['community_info']}")
+
 
         history_for_test2 = [
             {"role": "user", "content": query1},
-            {"role": "assistant", "content": answer1},
-            {"role": "user", "content": "What are his main problems?"}
+            {"role": "assistant", "content": response_data1['llm_answer']}, # Use the actual answer
+            {"role": "user", "content": "Tell me more about his interactions with Sonia."} # New query
         ]
         print("\n--- Test Query 2 (With History) ---")
         query2 = history_for_test2[-1]["content"]
-        answer2 = query_engine_instance.answer_query(query2, chat_history=history_for_test2)
-        print(f"Query: {query2}\nAnswer: {answer2}")
+        response_data2 = query_engine_instance.answer_query(query2, chat_history=history_for_test2)
+        print(f"Query: {query2}\nLLM Answer: {response_data2['llm_answer']}")
+        print(f"  Extracted Entities: {response_data2['query_entities_extracted']}")
+        print(f"  Graph Expanded Entities: {response_data2['graph_expanded_entities']}")
+        print(f"  Retrieved Chunks: {len(response_data2['retrieved_chunks'])}")
 
     except QueryEngineInitializationError as e:
         print(f"FATAL: Query engine self-test failed during initialization: {e}")
     except Exception as e:
         print(f"An unexpected error occurred during self-test: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         if hasattr(query_engine_instance, 'qdrant_client') and query_engine_instance.qdrant_client:
              print("\nQuery engine operations finished.")
